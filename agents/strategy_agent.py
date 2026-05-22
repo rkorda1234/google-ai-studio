@@ -23,6 +23,7 @@ async def build_strategy(
     monthly_budget: int,
     research_report: str,
     niche: str = "marketing agency",
+    landing_page_context: str = "",
 ) -> dict[str, Any]:
     """Generate a comprehensive full-funnel campaign strategy."""
 
@@ -34,6 +35,8 @@ async def build_strategy(
         "Be extremely specific — give numbers, timelines, and exact copy angles."
     )
 
+    lp_section = f"\n## Landing Page Intelligence\n{landing_page_context}\n" if landing_page_context else ""
+
     prompt = f"""Based on the competitive research below, create a complete full-funnel campaign strategy.
 
 ## Business Context
@@ -42,7 +45,7 @@ async def build_strategy(
 - **Campaign Goal:** {campaign_goal}
 - **Monthly Budget:** ${monthly_budget:,}
 - **Niche:** {niche}
-
+{lp_section}
 ## Competitive Research Summary
 {research_report[:3000]}
 

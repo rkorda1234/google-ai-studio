@@ -34,8 +34,11 @@ async def generate_email_sequence(
     offer: str,
     sender_name: str = "Your Name",
     sender_company: str = "Your Company",
+    landing_page_context: str = "",
 ) -> dict[str, Any]:
     """Generate a full 14-email nurture sequence."""
+
+    lp_section = f"\n{landing_page_context}\n" if landing_page_context else ""
 
     prompt = f"""Create a complete 14-email nurture sequence for a marketing agency.
 
@@ -44,6 +47,7 @@ async def generate_email_sequence(
 **Lead Magnet:** {lead_magnet_title}
 **Primary Offer:** {offer}
 **Sender:** {sender_name} from {sender_company}
+{lp_section}
 
 Return ONLY valid JSON:
 {{
@@ -130,8 +134,11 @@ async def generate_sms_sequence(
     lead_magnet_title: str,
     offer: str,
     booking_url: str = "{{booking_url}}",
+    landing_page_context: str = "",
 ) -> dict[str, Any]:
     """Generate SMS follow-up and nurture sequences."""
+
+    lp_section = f"\n{landing_page_context}\n" if landing_page_context else ""
 
     prompt = f"""Create a complete SMS follow-up and nurture sequence for a marketing agency.
 
@@ -140,6 +147,7 @@ async def generate_sms_sequence(
 **Lead Magnet:** {lead_magnet_title}
 **Offer:** {offer}
 **Booking URL:** {booking_url}
+{lp_section}
 
 IMPORTANT: SMS must be conversational, under 160 chars each, and feel personal — NOT spammy.
 Include merge tags like {{{{first_name}}}}.
@@ -209,14 +217,18 @@ async def generate_retargeting_emails(
     icp_summary: str,
     offer: str,
     reason_they_didnt_convert: str,
+    landing_page_context: str = "",
 ) -> dict[str, Any]:
     """Generate 5-email retargeting sequence for non-converters."""
+
+    lp_section = f"\n{landing_page_context}\n" if landing_page_context else ""
 
     prompt = f"""Create a 5-email retargeting sequence for leads who didn't convert.
 
 **ICP:** {icp_summary}
 **Offer:** {offer}
 **Why they may not have converted:** {reason_they_didnt_convert}
+{lp_section}
 
 Focus: Address objections, create urgency, use social proof, make a fresh offer.
 

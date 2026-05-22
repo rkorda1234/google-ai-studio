@@ -33,6 +33,34 @@ from agents.email_sms_agent import (
 from agents.ghl_agent import setup_ghl_account
 from agents.meta_campaign_agent import create_full_campaign as create_meta_campaign
 from agents.google_ads_agent import create_search_campaign as create_google_campaign
+from tools.landing_page_scraper import scrape_landing_page
+
+
+def _format_landing_page_context(analysis: dict, url: str) -> str:
+    """Turn scraped analysis into a prompt-ready context block."""
+    if not analysis:
+        return ""
+    pain = ", ".join(analysis.get("pain_points", [])) or "N/A"
+    outcomes = ", ".join(analysis.get("desired_outcomes", [])) or "N/A"
+    benefits = ", ".join(analysis.get("key_benefits", [])) or "N/A"
+    differentiators = ", ".join(analysis.get("unique_differentiators", [])) or "N/A"
+    ad_angles = ", ".join(analysis.get("ad_angles", [])) or "N/A"
+    return f"""
+## Landing Page Intelligence (scraped from {url})
+- **Headline:** {analysis.get("main_headline", "N/A")}
+- **Offer:** {analysis.get("offer", "N/A")}
+- **Target Audience:** {analysis.get("target_audience", "N/A")}
+- **Pain Points:** {pain}
+- **Desired Outcomes:** {outcomes}
+- **Key Benefits:** {benefits}
+- **Social Proof:** {analysis.get("social_proof", "N/A")}
+- **CTA:** {analysis.get("cta", "N/A")}
+- **Tone:** {analysis.get("tone", "N/A")}
+- **Unique Differentiators:** {differentiators}
+- **Proven Ad Angles:** {ad_angles}
+
+⚠️ Mirror this page's messaging exactly — use the same language, benefits, and tone.
+""".strip()
 
 
 class CampaignOrchestrator:
@@ -70,12 +98,23 @@ class CampaignOrchestrator:
             "steps": {},
         }
 
+        # ─── Step 0: Scrape landing page (if URL provided) ────────────────────
+        lp_context = ""
+        lp_analysis: dict[str, Any] = {}
+        if landing_page_url and landing_page_url.startswith("http"):
+            scrape = await scrape_landing_page(landing_page_url)
+            if scrape.get("success"):
+                lp_analysis = scrape.get("analysis", {})
+                lp_context = _format_landing_page_context(lp_analysis, landing_page_url)
+                _save(campaign_dir / "00_landing_page_intel.md", lp_context)
+
         # ─── Step 1: Research ─────────────────────────────────────────────────
         _progress("research", 5)
         research_result = await run_research(
             business_description=business,
             target_audience=target_audience,
             competitor_keywords=competitor_keywords or [],
+            landing_page_context=lp_context,
         )
         results["steps"]["research"] = research_result["success"]
         _save(campaign_dir / "01_research_report.md", research_result["report"])
@@ -88,6 +127,7 @@ class CampaignOrchestrator:
             campaign_goal=campaign_goal,
             monthly_budget=monthly_budget,
             research_report=research_result["report"],
+            landing_page_context=lp_context,
         )
         results["steps"]["strategy"] = strategy_result["success"]
         _save(campaign_dir / "02_strategy.md", strategy_result["strategy"])
@@ -102,27 +142,37 @@ class CampaignOrchestrator:
         ads_dir = campaign_dir / "03_ads"
         ads_dir.mkdir(exist_ok=True)
 
+        # Pull richer values from landing page intel when available
+        lp_pain = ", ".join(lp_analysis.get("pain_points", [])) or "Not enough qualified leads, high CAC, unpredictable pipeline"
+        lp_outcomes = ", ".join(lp_analysis.get("desired_outcomes", [])) or "Consistent flow of qualified leads on autopilot"
+        lp_lead_magnet = lp_analysis.get("offer", "") or "Free Lead Generation Playbook"
+        lp_offer = lp_analysis.get("offer", "") or offer
+
         google_result, meta_result, tiktok_result, lm_result = await asyncio.gather(
             generate_google_ads(
                 icp_summary=icp_summary,
-                offer=offer,
+                offer=lp_offer,
                 keywords=competitor_keywords or ["marketing agency", "lead generation"],
                 landing_page_url=landing_page_url or "{{your_landing_page_url}}",
+                landing_page_context=lp_context,
             ),
             generate_meta_ads(
                 icp_summary=icp_summary,
-                offer=offer,
-                lead_magnet="Free Lead Generation Playbook",
+                offer=lp_offer,
+                lead_magnet=lp_lead_magnet,
+                landing_page_context=lp_context,
             ),
             generate_tiktok_ads(
                 icp_summary=icp_summary,
-                offer=offer,
-                lead_magnet="Free Lead Generation Playbook",
+                offer=lp_offer,
+                lead_magnet=lp_lead_magnet,
+                landing_page_context=lp_context,
             ),
             generate_lead_magnet(
                 icp_summary=icp_summary,
-                pain_points="Not enough qualified leads, high CAC, unpredictable pipeline",
-                desired_outcome="Consistent flow of qualified leads on autopilot",
+                pain_points=lp_pain,
+                desired_outcome=lp_outcomes,
+                landing_page_context=lp_context,
             ),
         )
 
@@ -152,21 +202,24 @@ class CampaignOrchestrator:
                 business_description=business,
                 icp_summary=icp_summary,
                 lead_magnet_title=lead_magnet_title,
-                offer=offer,
+                offer=lp_offer,
+                landing_page_context=lp_context,
             ),
             generate_sms_sequence(
                 business_description=business,
                 icp_summary=icp_summary,
                 lead_magnet_title=lead_magnet_title,
-                offer=offer,
+                offer=lp_offer,
+                landing_page_context=lp_context,
             ),
             generate_retargeting_emails(
                 icp_summary=icp_summary,
-                offer=offer,
+                offer=lp_offer,
                 reason_they_didnt_convert=(
                     "No time, unsure of ROI, haven't finished the lead magnet, "
                     "comparing with competitors"
                 ),
+                landing_page_context=lp_context,
             ),
         )
 

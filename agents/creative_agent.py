@@ -33,8 +33,11 @@ async def generate_google_ads(
     offer: str,
     keywords: list[str],
     landing_page_url: str = "https://yourdomain.com",
+    landing_page_context: str = "",
 ) -> dict[str, Any]:
     """Generate Google RSAs and display ad copy."""
+
+    lp_section = f"\n{landing_page_context}\n" if landing_page_context else ""
 
     prompt = f"""Create complete Google Ads campaigns for a marketing agency.
 
@@ -42,6 +45,7 @@ async def generate_google_ads(
 **Offer/CTA:** {offer}
 **Target Keywords:** {', '.join(keywords)}
 **Landing Page:** {landing_page_url}
+{lp_section}
 
 Return ONLY valid JSON in this exact structure:
 {{
@@ -102,8 +106,11 @@ async def generate_meta_ads(
     offer: str,
     lead_magnet: str,
     campaign_objective: str = "LEAD_GENERATION",
+    landing_page_context: str = "",
 ) -> dict[str, Any]:
     """Generate Facebook/Instagram ad creatives: static, carousel, and video scripts."""
+
+    lp_section = f"\n{landing_page_context}\n" if landing_page_context else ""
 
     prompt = f"""Create a complete Meta (Facebook/Instagram) ad campaign for a marketing agency.
 
@@ -111,6 +118,7 @@ async def generate_meta_ads(
 **Primary Offer:** {offer}
 **Lead Magnet:** {lead_magnet}
 **Campaign Objective:** {campaign_objective}
+{lp_section}
 
 Return ONLY valid JSON:
 {{
@@ -200,14 +208,18 @@ async def generate_tiktok_ads(
     icp_summary: str,
     offer: str,
     lead_magnet: str,
+    landing_page_context: str = "",
 ) -> dict[str, Any]:
     """Generate TikTok ad scripts optimized for native-feel performance."""
+
+    lp_section = f"\n{landing_page_context}\n" if landing_page_context else ""
 
     prompt = f"""Create TikTok ad scripts for a marketing agency targeting:
 
 **ICP:** {icp_summary}
 **Offer:** {offer}
 **Lead Magnet:** {lead_magnet}
+{lp_section}
 
 Return ONLY valid JSON:
 {{
@@ -265,8 +277,11 @@ async def generate_lead_magnet(
     pain_points: str,
     desired_outcome: str,
     niche: str = "marketing agency",
+    landing_page_context: str = "",
 ) -> dict[str, Any]:
     """Generate lead magnet concept, title, outline, and landing page copy."""
+
+    lp_section = f"\n{landing_page_context}\n" if landing_page_context else ""
 
     prompt = f"""Create a high-converting lead magnet strategy for a marketing agency.
 
@@ -274,6 +289,7 @@ async def generate_lead_magnet(
 **Pain Points:** {pain_points}
 **Desired Outcome:** {desired_outcome}
 **Niche:** {niche}
+{lp_section}
 
 Return ONLY valid JSON:
 {{

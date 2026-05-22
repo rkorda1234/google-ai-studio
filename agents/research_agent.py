@@ -84,6 +84,7 @@ async def run_research(
     target_audience: str,
     competitor_keywords: list[str],
     niche: str = "marketing agency",
+    landing_page_context: str = "",
 ) -> dict[str, Any]:
     """Run the full research pipeline and return a structured report."""
 
@@ -97,17 +98,19 @@ async def run_research(
         "Be specific, data-driven, and practical. Focus on WHAT is working and WHY."
     )
 
+    lp_section = f"\n{landing_page_context}\n" if landing_page_context else ""
+
     user_message = f"""Research competitor advertising for a marketing agency with the following context:
 
 **Business:** {business_description}
 **Target Audience:** {target_audience}
 **Keywords to Research:** {keyword_str}
-
+{lp_section}
 Please:
 1. Search the Facebook Ad Library for ads related to: {keyword_str}
 2. Get Instagram content pattern insights from top marketing accounts
 3. Analyze what's working: hooks, offers, CTAs, formats, angles
-4. Identify gaps and opportunities
+4. Identify gaps and opportunities — especially vs. the landing page above
 
 Then produce a comprehensive research report covering:
 - Top-performing ad angles and hooks
@@ -115,6 +118,7 @@ Then produce a comprehensive research report covering:
 - Platform-specific creative patterns (FB vs IG vs TikTok)
 - Content themes that dominate the space
 - 5 specific recommendations for differentiating our campaigns
+- How competitors' messaging compares to our landing page (if provided)
 """
 
     messages = [{"role": "user", "content": user_message}]
