@@ -260,6 +260,104 @@ Map to GHL custom fields via workflow action **"Update Contact Field"**.
 
 ---
 
+## Step 8: Connect Meta (Facebook/Instagram) Retargeting — DO THIS ONCE
+
+This is a one-time setup. After this, every lead tagged `retarget-ad-audience` in GHL
+will **automatically** start seeing your Facebook & Instagram retargeting ads.
+
+### 8a — Connect Meta to GHL
+1. In GHL go to **Settings → Integrations → Facebook**
+2. Click **Connect** → log in with your Facebook account
+3. Select your **Ad Account** and **Facebook Page** → click Save
+
+### 8b — Create the Retargeting Audience in Meta
+1. Go to **Meta Ads Manager → Audiences**
+2. Click **Create Audience → Custom Audience → CRM / Customer List**
+3. Choose **"Import from CRM"** or **"GoHighLevel"** if available, OR:
+   - Export GHL contacts tagged `retarget-ad-audience` as CSV
+   - Upload to Meta → name it **"GHL Non-Converters"**
+4. Meta will match emails/phones to Facebook profiles (usually 60-80% match rate)
+
+### 8c — Create a Lookalike Audience (bonus)
+1. In Meta Audiences → **Create Audience → Lookalike Audience**
+2. Source: **"GHL Non-Converters"** audience you just created
+3. Country: US (or your target country)
+4. Size: 1% (most similar) → click Create
+5. Name it **"Lookalike — Agency Leads"**
+   This finds millions of people who look like your leads — great for top-of-funnel ads.
+
+### 8d — Set Up the Retargeting Ad Campaign (one time)
+1. In Meta Ads Manager → **Create Campaign → Retargeting**
+2. Objective: **Leads** or **Conversions**
+3. Audience: select **"GHL Non-Converters"**
+4. Upload the retargeting ad creatives from `03_ads/meta_ads.json` (retargeting_ads section)
+5. Set daily budget: $10-20/day
+6. Turn campaign **ON and leave it running**
+
+From now on: every time n8n tags a contact `retarget-ad-audience` in GHL,
+that contact syncs to Meta and automatically starts seeing your ads. ✅
+
+---
+
+## Step 9: Connect Google Ads Retargeting — DO THIS ONCE
+
+### 9a — Connect Google Ads to GHL
+1. In GHL go to **Settings → Integrations → Google Ads**
+2. Click **Connect** → sign in with your Google account
+3. Select your **Google Ads Customer ID** → Save
+
+### 9b — Create a Customer Match Audience
+1. In Google Ads → **Tools → Audience Manager → Customer Lists**
+2. Click **+ → Customer list**
+3. Select **"Emails, phones and mailing addresses"**
+4. Upload a CSV of contacts tagged `retarget-ad-audience` from GHL
+5. Name it **"GHL Non-Converters"** → Upload
+6. Google takes 24-48 hours to process and match (usually 30-50% match rate)
+
+### 9c — Set Up the Google Retargeting Campaign (one time)
+1. Create a new campaign → **Display or Search**
+2. Audience: **"GHL Non-Converters"** customer list
+3. For Display: upload banner creatives (from your brand assets)
+4. For Search: use the Google Ads copy from `03_ads/google_ads.json`
+5. Set daily budget and turn **ON**
+
+### 9d — Auto-sync going forward
+1. In GHL go to **Settings → Integrations → Google Ads**
+2. Enable **"Sync contacts to Google Audience"**
+3. Filter: Tag = `retarget-ad-audience`
+4. Google Ads will automatically update the customer list as new contacts get tagged ✅
+
+---
+
+## How It All Works Automatically (Summary)
+
+```
+Lead clicks your ad
+       ↓
+Fills landing page form
+       ↓
+n8n creates contact in GHL + tags "new-lead"
+       ↓
+GHL sends welcome email + SMS immediately
+       ↓
+14 emails sent over 32 days automatically
+       ↓
+Still no conversion after 7 days of inactivity?
+       ↓
+n8n tags contact "retarget-ad-audience"
+       ↓
+GHL syncs to Meta → Facebook/Instagram retargeting ads start showing ✅
+GHL syncs to Google → Google Display/Search retargeting ads start showing ✅
+GHL sends 5-email retargeting sequence ✅
+GHL sends 2 re-engagement SMS ✅
+       ↓
+Lead converts → tag "converted" → all retargeting stops ✅
+```
+
+You set this up once. Every lead after that goes through the full funnel automatically.
+
+---
+
 ## Troubleshooting
 
 - **Emails not sending:** Check GHL SMTP settings under Settings > Email Services
