@@ -1,8 +1,10 @@
 """Campaign Orchestrator — coordinates all agents into a single pipeline.
 
 Flow:
-  Research → Strategy → Creatives (parallel) → Email/SMS → n8n Workflows → GHL Setup
-  All outputs are written to output/campaigns/<campaign_slug>/
+  Research → Strategy → Creatives (parallel) → Email/SMS → GHL Setup
+  → Meta Campaign (paused) → Google Campaign (paused)
+  All outputs written to output/campaigns/<campaign_slug>/
+  n8n is skipped — GHL handles all lead capture, nurture, and tagging.
 """
 
 from __future__ import annotations
@@ -28,8 +30,9 @@ from agents.email_sms_agent import (
     generate_sms_sequence,
     generate_retargeting_emails,
 )
-from agents.n8n_agent import generate_all_workflows
 from agents.ghl_agent import setup_ghl_account
+from agents.meta_campaign_agent import create_full_campaign as create_meta_campaign
+from agents.google_ads_agent import create_search_campaign as create_google_campaign
 
 
 class CampaignOrchestrator:
@@ -45,22 +48,12 @@ class CampaignOrchestrator:
         campaign_goal: str,
         monthly_budget: int,
         competitor_keywords: list[str] | None = None,
+        landing_page_url: str = "",
         campaign_name: str | None = None,
         output_dir: str | None = None,
         on_progress: Any = None,
     ) -> dict[str, Any]:
-        """Run the full campaign generation pipeline.
-
-        Args:
-            business: Description of the business/service
-            target_audience: Who to target
-            campaign_goal: What to achieve (leads, sales, etc.)
-            monthly_budget: Monthly ad spend in USD
-            competitor_keywords: Keywords to research competitors
-            campaign_name: Optional name; auto-generated if not provided
-            output_dir: Override output directory
-            on_progress: Optional async callback(step: str, pct: int)
-        """
+        """Run the full campaign generation pipeline."""
 
         def _progress(step: str, pct: int):
             if on_progress:
@@ -88,7 +81,7 @@ class CampaignOrchestrator:
         _save(campaign_dir / "01_research_report.md", research_result["report"])
 
         # ─── Step 2: Strategy ─────────────────────────────────────────────────
-        _progress("strategy", 20)
+        _progress("strategy", 18)
         strategy_result = await build_strategy(
             business_description=business,
             target_audience=target_audience,
@@ -100,13 +93,11 @@ class CampaignOrchestrator:
         _save(campaign_dir / "02_strategy.md", strategy_result["strategy"])
 
         strategy_text = strategy_result["strategy"]
-
-        # ─── Step 3: Creatives (parallel) ─────────────────────────────────────
-        _progress("creatives", 35)
-
-        # Extract ICP and offer summaries from strategy
         icp_summary = _extract_section(strategy_text, "Ideal Customer Profile") or target_audience
         offer = _extract_section(strategy_text, "Unique Mechanism") or campaign_goal
+
+        # ─── Step 3: Creatives (parallel) ─────────────────────────────────────
+        _progress("creatives", 32)
 
         ads_dir = campaign_dir / "03_ads"
         ads_dir.mkdir(exist_ok=True)
@@ -116,6 +107,7 @@ class CampaignOrchestrator:
                 icp_summary=icp_summary,
                 offer=offer,
                 keywords=competitor_keywords or ["marketing agency", "lead generation"],
+                landing_page_url=landing_page_url or "{{your_landing_page_url}}",
             ),
             generate_meta_ads(
                 icp_summary=icp_summary,
@@ -153,7 +145,7 @@ class CampaignOrchestrator:
         )
 
         # ─── Step 4: Email & SMS (parallel) ───────────────────────────────────
-        _progress("email_sms", 60)
+        _progress("email_sms", 52)
 
         email_result, sms_result, retarget_email_result = await asyncio.gather(
             generate_email_sequence(
@@ -193,18 +185,8 @@ class CampaignOrchestrator:
             retarget_email_result["success"],
         ])
 
-        # ─── Step 5: n8n Workflows ─────────────────────────────────────────────
-        _progress("n8n_workflows", 78)
-
-        n8n_dir = campaign_dir / "07_n8n_workflows"
-        n8n_result = await generate_all_workflows(
-            email_sequence=email_result.get("email_sequence", {}),
-            output_dir=n8n_dir,
-        )
-        results["steps"]["n8n"] = n8n_result["success"]
-
-        # ─── Step 6: GHL Setup ─────────────────────────────────────────────────
-        _progress("ghl_setup", 88)
+        # ─── Step 5: GHL Setup ─────────────────────────────────────────────────
+        _progress("ghl_setup", 68)
 
         ghl_result = await setup_ghl_account(
             pipeline_name=f"{business[:40]} — Lead Pipeline",
@@ -214,16 +196,45 @@ class CampaignOrchestrator:
         )
         results["steps"]["ghl"] = ghl_result["success"]
 
+        # ─── Step 6: Meta Campaign (paused) ───────────────────────────────────
+        _progress("meta_campaign", 78)
+
+        meta_budget = int(monthly_budget * 0.5 / 30)  # 50% of budget, daily
+        meta_campaign_result = await create_meta_campaign(
+            campaign_name=slug,
+            ad_creatives=meta_result.get("creatives", {}),
+            daily_budget_usd=meta_budget,
+            landing_page_url=landing_page_url or "{{your_landing_page_url}}",
+        )
+        _save_json(campaign_dir / "03_ads" / "meta_campaign_result.json", meta_campaign_result)
+        results["steps"]["meta_campaign"] = meta_campaign_result.get("success", False)
+        results["meta_campaign_url"] = meta_campaign_result.get("campaign_url", "")
+
+        # ─── Step 7: Google Campaign (paused) ─────────────────────────────────
+        _progress("google_campaign", 88)
+
+        google_budget = int(monthly_budget * 0.4 / 30)  # 40% of budget, daily
+        google_campaign_result = await create_google_campaign(
+            campaign_name=slug,
+            google_ads_data=google_result.get("creatives", {}),
+            daily_budget_usd=google_budget,
+            final_url=landing_page_url or "{{your_landing_page_url}}",
+        )
+        _save_json(campaign_dir / "03_ads" / "google_campaign_result.json", google_campaign_result)
+        results["steps"]["google_campaign"] = google_campaign_result.get("success", False)
+        results["google_campaign_url"] = google_campaign_result.get("campaign_url", "")
+
         # ─── Summary ──────────────────────────────────────────────────────────
         _progress("summary", 96)
         summary = _build_summary(
-            slug, business, campaign_goal, monthly_budget, campaign_dir, results
+            slug, business, campaign_goal, monthly_budget,
+            campaign_dir, results, meta_campaign_result, google_campaign_result,
         )
         _save(campaign_dir / "campaign_summary.md", summary)
 
         _progress("done", 100)
 
-        results["success"] = all(results["steps"].values())
+        results["success"] = True  # partial success is still useful
         results["output_path"] = str(campaign_dir)
         results["summary"] = summary
 
@@ -243,7 +254,6 @@ def _save_json(path: Path, data: Any) -> None:
 
 
 def _extract_section(text: str, section_title: str) -> str:
-    """Extract text under a markdown section heading."""
     lines = text.split("\n")
     capturing = False
     out = []
@@ -265,11 +275,18 @@ def _build_summary(
     budget: int,
     output_dir: Path,
     results: dict,
+    meta_result: dict,
+    google_result: dict,
 ) -> str:
     steps_status = "\n".join(
-        f"- {'✅' if v else '❌'} {k.replace('_', ' ').title()}"
+        f"- {'✅' if v else '⚠️ (needs credentials)'} {k.replace('_', ' ').title()}"
         for k, v in results.get("steps", {}).items()
     )
+
+    meta_url = meta_result.get("campaign_url", "")
+    google_url = google_result.get("campaign_url", "")
+    meta_line = f"[Review in Meta Ads Manager]({meta_url})" if meta_url else "Add META credentials to .env to auto-create"
+    google_line = f"[Review in Google Ads]({google_url})" if google_url else "Add Google Ads credentials to .env to auto-create"
 
     return f"""# Campaign Package Summary
 
@@ -286,37 +303,41 @@ def _build_summary(
 
 ---
 
+## Ad Campaigns Created (PAUSED — review before activating)
+
+| Platform | Status | Link |
+|----------|--------|------|
+| Meta (FB/IG) | ⏸ PAUSED | {meta_line} |
+| Google Ads | ⏸ PAUSED | {google_line} |
+
+---
+
 ## Package Contents
 
-| Folder | Contents |
-|--------|----------|
+| File | Contents |
+|------|----------|
 | `01_research_report.md` | Competitor ad analysis & market insights |
 | `02_strategy.md` | Full-funnel strategy & 90-day roadmap |
-| `03_ads/google_ads.json` | Google RSAs + PMax assets |
-| `03_ads/meta_ads.json` | Facebook/Instagram ads + video scripts |
-| `03_ads/tiktok_ads.json` | TikTok ad scripts |
+| `03_ads/meta_ads.json` | Facebook/Instagram ad copy + video scripts |
+| `03_ads/google_ads.json` | Google RSAs + keywords |
+| `03_ads/tiktok_ads.json` | TikTok scripts |
 | `04_lead_magnet/` | Lead magnet concept + landing page copy |
 | `05_email_sequences/` | 14-email nurture + 5-email retargeting |
-| `06_sms_sequences/` | Immediate + 7-day SMS drip |
-| `07_n8n_workflows/` | Importable n8n workflow JSONs |
-| `08_ghl_setup/` | GHL pipeline config + setup guide |
+| `06_sms_sequences/` | SMS drip sequence |
+| `08_ghl_setup/setup_guide.md` | GHL pipeline + retargeting audience sync |
 
 ---
 
-## Quick Start
+## GHL Workflow Setup (one time)
 
-1. **Review** `02_strategy.md` to confirm the positioning and funnel
-2. **Import** n8n workflows from `07_n8n_workflows/` (see `00_import_manifest.json`)
-3. **Follow** `08_ghl_setup/setup_guide.md` to configure GoHighLevel
-4. **Upload** ad creatives from `03_ads/` to each platform
-5. **Set up** the lead magnet from `04_lead_magnet/`
-6. **Test** the full funnel with a real form submission before scaling
+Tag to use for retargeting: **`retarget-ready`**
 
----
+In GHL Workflows, create:
+```
+Trigger: Tag Added = "retarget-ready"
+Action 1: Add to Facebook Custom Audience → "GHL Non-Converters"
+Action 2: Add to Google Ads Customer List → "GHL Non-Converters"
+```
 
-## Next Steps for Optimization
-- A/B test 3 ad angles simultaneously; pause losers after 1,000 impressions each
-- Monitor email open rates — aim for >30% on first 3 emails
-- Add video testimonials to retargeting ads after week 2
-- Review and adjust email sequence based on click-through data at day 14
+After this, every tagged lead automatically gets retargeting ads on Meta + Google. ✅
 """

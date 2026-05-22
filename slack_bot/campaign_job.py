@@ -82,6 +82,7 @@ async def _async_run(
             campaign_goal=params["goal"],
             monthly_budget=params["budget"],
             competitor_keywords=params.get("keywords", []),
+            landing_page_url=params.get("landing_page_url", ""),
             on_progress=on_progress,
         )
 

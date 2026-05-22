@@ -60,6 +60,7 @@ def handle_modal_submission(ack, body, client, view):
     goal = vals["goal_block"]["goal_input"]["value"]
     budget_str = vals["budget_block"]["budget_input"]["value"]
     keywords_str = vals.get("keywords_block", {}).get("keywords_input", {}).get("value") or ""
+    landing_page = vals.get("landing_page_block", {}).get("landing_page_input", {}).get("value") or ""
 
     try:
         budget = int(budget_str.replace("$", "").replace(",", "").strip())
@@ -87,6 +88,7 @@ def handle_modal_submission(ack, body, client, view):
             "goal": goal,
             "budget": budget,
             "keywords": keywords,
+            "landing_page_url": landing_page,
         },
     )
 

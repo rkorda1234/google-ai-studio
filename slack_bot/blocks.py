@@ -93,6 +93,24 @@ def campaign_modal(trigger_id: str | None = None) -> dict:
             },
             {
                 "type": "input",
+                "block_id": "landing_page_block",
+                "label": {"type": "plain_text", "text": "🔗 Landing page URL"},
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "landing_page_input",
+                    "placeholder": {
+                        "type": "plain_text",
+                        "text": "e.g. https://yoursite.com/free-guide",
+                    },
+                },
+                "optional": True,
+                "hint": {
+                    "type": "plain_text",
+                    "text": "Used to auto-create your Meta & Google campaigns (paused for review)",
+                },
+            },
+            {
+                "type": "input",
                 "block_id": "platforms_block",
                 "label": {"type": "plain_text", "text": "📱 Ad platforms"},
                 "element": {
