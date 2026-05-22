@@ -17,22 +17,31 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 ADS_BASE = "https://googleads.googleapis.com/v17"
 
 
-async def _get_access_token() -> str | None:
-    """Exchange refresh token for access token."""
-    if not all([
-        settings.GOOGLE_ADS_CLIENT_ID,
-        settings.GOOGLE_ADS_CLIENT_SECRET,
-        settings.GOOGLE_ADS_REFRESH_TOKEN,
-    ]):
-        return None
-    async with httpx.AsyncClient(timeout=15) as c:
-        r = await c.post(TOKEN_URL, data={
-            "client_id": settings.GOOGLE_ADS_CLIENT_ID,
-            "client_secret": settings.GOOGLE_ADS_CLIENT_SECRET,
-            "refresh_token": settings.GOOGLE_ADS_REFRESH_TOKEN,
-            "grant_type": "refresh_token",
-        })
-        return r.json().get("access_token")
+async def _get_access_token() -> tuple[str | None, str]:
+    """Exchange refresh token for access token. Returns (token, error_message)."""
+    missing = [k for k, v in {
+        "GOOGLE_ADS_CLIENT_ID": settings.GOOGLE_ADS_CLIENT_ID,
+        "GOOGLE_ADS_CLIENT_SECRET": settings.GOOGLE_ADS_CLIENT_SECRET,
+        "GOOGLE_ADS_REFRESH_TOKEN": settings.GOOGLE_ADS_REFRESH_TOKEN,
+        "GOOGLE_ADS_DEVELOPER_TOKEN": settings.GOOGLE_ADS_DEVELOPER_TOKEN,
+        "GOOGLE_ADS_CUSTOMER_ID": settings.GOOGLE_ADS_CUSTOMER_ID,
+    }.items() if not v]
+    if missing:
+        return None, f"Missing in .env: {', '.join(missing)}"
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.post(TOKEN_URL, data={
+                "client_id": settings.GOOGLE_ADS_CLIENT_ID,
+                "client_secret": settings.GOOGLE_ADS_CLIENT_SECRET,
+                "refresh_token": settings.GOOGLE_ADS_REFRESH_TOKEN,
+                "grant_type": "refresh_token",
+            })
+            data = r.json()
+            if "access_token" not in data:
+                return None, f"OAuth failed: {data.get('error_description', data.get('error', str(data)))}"
+            return data["access_token"], ""
+    except Exception as e:
+        return None, f"Token request failed: {e}"
 
 
 def _headers(access_token: str) -> dict:
@@ -51,9 +60,9 @@ async def create_search_campaign(
 ) -> dict[str, Any]:
     """Create a paused Google Search campaign with RSAs."""
 
-    access_token = await _get_access_token()
-    if not access_token or not settings.GOOGLE_ADS_CUSTOMER_ID:
-        return _demo_result(campaign_name, "search")
+    access_token, token_error = await _get_access_token()
+    if not access_token:
+        return _demo_result(campaign_name, "search", token_error)
 
     customer_id = settings.GOOGLE_ADS_CUSTOMER_ID.replace("-", "")
     results: dict[str, Any] = {"campaign_name": campaign_name, "success": False}
@@ -132,9 +141,9 @@ async def create_display_retargeting_campaign(
 ) -> dict[str, Any]:
     """Create a paused Google Display retargeting campaign."""
 
-    access_token = await _get_access_token()
-    if not access_token or not settings.GOOGLE_ADS_CUSTOMER_ID:
-        return _demo_result(f"{campaign_name} — Retargeting", "display")
+    access_token, token_error = await _get_access_token()
+    if not access_token:
+        return _demo_result(f"{campaign_name} — Retargeting", "display", token_error)
 
     customer_id = settings.GOOGLE_ADS_CUSTOMER_ID.replace("-", "")
 
@@ -175,16 +184,10 @@ async def create_display_retargeting_campaign(
         return {"success": False, "error": str(e)}
 
 
-def _demo_result(name: str, campaign_type: str) -> dict:
+def _demo_result(name: str, campaign_type: str, reason: str = "") -> dict:
     return {
         "campaign_name": name,
         "campaign_type": campaign_type,
         "success": False,
-        "demo_mode": True,
-        "message": "Add Google Ads credentials to .env to auto-create campaigns.",
-        "next_step": (
-            "To enable: add GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, "
-            "GOOGLE_ADS_CLIENT_SECRET, GOOGLE_ADS_REFRESH_TOKEN, "
-            "GOOGLE_ADS_CUSTOMER_ID to your .env file."
-        ),
+        "message": reason or "Google Ads credentials not configured.",
     }
