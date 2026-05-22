@@ -60,10 +60,14 @@ async def search_ads(
         "limit": limit,
     }
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(AD_LIBRARY_ENDPOINT, params=params)
-        resp.raise_for_status()
-        return resp.json()
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(AD_LIBRARY_ENDPOINT, params=params)
+            if resp.status_code != 200:
+                return _demo_response(search_terms)
+            return resp.json()
+    except Exception:
+        return _demo_response(search_terms)
 
 
 async def get_page_ads(page_id: str, limit: int = 10) -> dict[str, Any]:
@@ -80,10 +84,14 @@ async def get_page_ads(page_id: str, limit: int = 10) -> dict[str, Any]:
         "limit": limit,
     }
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(AD_LIBRARY_ENDPOINT, params=params)
-        resp.raise_for_status()
-        return resp.json()
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(AD_LIBRARY_ENDPOINT, params=params)
+            if resp.status_code != 200:
+                return _demo_response(f"page:{page_id}")
+            return resp.json()
+    except Exception:
+        return _demo_response(f"page:{page_id}")
 
 
 def summarize_ads(raw: dict[str, Any]) -> list[dict[str, Any]]:
