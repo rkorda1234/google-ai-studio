@@ -16,7 +16,7 @@ def campaign_modal(trigger_id: str | None = None) -> dict:
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "*Fill in the details below.* Claude will research competitors, write your ads, email sequences, and set up n8n + GHL — usually takes 3–5 minutes.",
+                    "text": "*Fill in the details below.* Claude will research competitors, write your ads, email sequences, and auto-create your Meta & Google campaigns (paused for review) — usually takes 3–5 minutes.",
                 },
             },
             {"type": "divider"},
@@ -106,7 +106,7 @@ def campaign_modal(trigger_id: str | None = None) -> dict:
                 "optional": True,
                 "hint": {
                     "type": "plain_text",
-                    "text": "Used to auto-create your Meta & Google campaigns (paused for review)",
+                    "text": "Claude reads this page and writes ad copy that matches your messaging. Also used to auto-create campaigns (paused). You add images/videos before activating.",
                 },
             },
             {
@@ -162,10 +162,10 @@ def generating_message(business: str, user_id: str) -> list[dict]:
             "fields": [
                 {"type": "mrkdwn", "text": "🔍 *Step 1:* Researching competitor ads"},
                 {"type": "mrkdwn", "text": "📊 *Step 2:* Building funnel strategy"},
-                {"type": "mrkdwn", "text": "✏️ *Step 3:* Writing ad creatives"},
+                {"type": "mrkdwn", "text": "✏️ *Step 3:* Writing ad copy (Google, Meta & TikTok)"},
                 {"type": "mrkdwn", "text": "📧 *Step 4:* Creating email & SMS sequences"},
-                {"type": "mrkdwn", "text": "⚙️ *Step 5:* Building n8n workflows"},
-                {"type": "mrkdwn", "text": "🏗️ *Step 6:* Setting up GoHighLevel"},
+                {"type": "mrkdwn", "text": "🚀 *Step 5:* Creating Meta & Google campaigns (paused)"},
+                {"type": "mrkdwn", "text": "📎 *Step 6:* Packaging files for Slack"},
             ],
         },
         {
@@ -173,7 +173,7 @@ def generating_message(business: str, user_id: str) -> list[dict]:
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": "This usually takes 3–5 minutes. I'll tag you when it's ready.",
+                    "text": "This usually takes 3–5 minutes. Files will appear in this thread when ready.",
                 }
             ],
         },
@@ -231,23 +231,23 @@ def results_message(result: dict, user_id: str) -> list[dict]:
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"{'✅' if steps.get('strategy') else '⚠️'} *Campaign Strategy*\nICP, funnel map, 90-day plan",
+                    "text": f"{'✅' if steps.get('strategy') else '⚠️'} *Campaign Strategy*\nICP, funnel map & 90-day plan",
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"{'✅' if steps.get('creatives') else '⚠️'} *Ad Creatives*\nGoogle, Meta & TikTok copy",
+                    "text": f"{'✅' if steps.get('creatives') else '⚠️'} *Ad Copy*\nGoogle, Meta & TikTok headlines, descriptions & scripts",
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"{'✅' if steps.get('email_sms') else '⚠️'} *Email & SMS*\n14 emails + SMS drip",
+                    "text": f"{'✅' if steps.get('email_sms') else '⚠️'} *Email & SMS*\n14-email nurture + SMS drip",
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"{'✅' if steps.get('n8n') else '⚠️'} *n8n Workflows*\n3 importable JSONs",
+                    "text": f"{'✅' if steps.get('meta_campaign') else '⚠️'} *Meta Campaign (paused)*\nReady in Ads Manager — add your images/videos then activate",
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"{'✅' if steps.get('ghl') else '⚠️'} *GHL Setup*\nPipeline + templates + guide",
+                    "text": f"{'✅' if steps.get('google_campaign') else '⚠️'} *Google Campaign (paused)*\nReady in Google Ads — review then activate",
                 },
             ],
         },
@@ -278,7 +278,14 @@ def results_message(result: dict, user_id: str) -> list[dict]:
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*🚀 Your next steps:*\n1. Review `02_strategy.md` to confirm positioning\n2. Import `07_n8n_workflows/` into n8n\n3. Follow `08_ghl_setup/setup_guide.md` for GHL\n4. Upload `03_ads/` creatives to your ad platforms",
+                "text": (
+                    "*🚀 Your next steps:*\n"
+                    "1️⃣  *Review the files below* — strategy, ad copy, emails & SMS are all attached\n"
+                    "2️⃣  *Meta campaign* — go to Ads Manager, find the paused campaign, add your images/videos, then activate\n"
+                    "3️⃣  *Google campaign* — go to Google Ads, find the paused campaign, review copy, then activate\n"
+                    "4️⃣  *Copy emails & SMS into GHL* — use the sequences in this thread as templates\n"
+                    "5️⃣  *Leads come in via GHL* — your retargeting workflow tags them automatically after 7 days"
+                ),
             },
         },
         {
@@ -286,7 +293,7 @@ def results_message(result: dict, user_id: str) -> list[dict]:
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": f"📁 Saved to: `{out_dir}` | Run `/campaign` again any time to create a new one.",
+                    "text": "Run `/campaign` again any time to generate a new campaign. Each one is saved separately.",
                 }
             ],
         },
