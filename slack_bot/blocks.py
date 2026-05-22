@@ -199,6 +199,8 @@ def results_message(result: dict, user_id: str) -> list[dict]:
     out_dir = result.get("output_path", "output/campaigns/")
     slug = result.get("campaign_slug", "campaign")
     steps = result.get("steps", {})
+    meta_error = result.get("meta_campaign_error", "")
+    google_error = result.get("google_campaign_error", "")
 
     # Extract highlights from the summary
     summary_preview = result.get("summary", "")[:800]
@@ -243,11 +245,19 @@ def results_message(result: dict, user_id: str) -> list[dict]:
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"{'✅' if steps.get('meta_campaign') else '⚠️'} *Meta Campaign (paused)*\nReady in Ads Manager — add your images/videos then activate",
+                    "text": (
+                        f"{'✅' if steps.get('meta_campaign') else '❌'} *Meta Campaign*\n"
+                        + ("Ready in Ads Manager — add images/videos then activate" if steps.get('meta_campaign')
+                           else f"Failed: `{meta_error[:80]}`" if meta_error else "Failed — check meta_campaign_result.json")
+                    ),
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"{'✅' if steps.get('google_campaign') else '⚠️'} *Google Campaign (paused)*\nReady in Google Ads — review then activate",
+                    "text": (
+                        f"{'✅' if steps.get('google_campaign') else '❌'} *Google Campaign*\n"
+                        + ("Ready in Google Ads — review then activate" if steps.get('google_campaign')
+                           else f"Failed: `{google_error[:80]}`" if google_error else "Failed — check google_campaign_result.json")
+                    ),
                 },
             ],
         },

@@ -262,6 +262,7 @@ class CampaignOrchestrator:
         _save_json(campaign_dir / "03_ads" / "meta_campaign_result.json", meta_campaign_result)
         results["steps"]["meta_campaign"] = meta_campaign_result.get("success", False)
         results["meta_campaign_url"] = meta_campaign_result.get("campaign_url", "")
+        results["meta_campaign_error"] = meta_campaign_result.get("error", meta_campaign_result.get("message", ""))
 
         # ─── Step 7: Google Campaign (paused) ─────────────────────────────────
         _progress("google_campaign", 88)
@@ -276,6 +277,7 @@ class CampaignOrchestrator:
         _save_json(campaign_dir / "03_ads" / "google_campaign_result.json", google_campaign_result)
         results["steps"]["google_campaign"] = google_campaign_result.get("success", False)
         results["google_campaign_url"] = google_campaign_result.get("campaign_url", "")
+        results["google_campaign_error"] = google_campaign_result.get("error", google_campaign_result.get("message", ""))
 
         # ─── Summary ──────────────────────────────────────────────────────────
         _progress("summary", 96)
