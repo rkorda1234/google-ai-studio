@@ -1,11 +1,14 @@
-"""Meta Marketing API — auto-creates campaigns in PAUSED state.
+"""Meta Marketing API — auto-creates campaign shell in PAUSED state.
 
-Creates full campaign structure ready for review:
+Creates:
 - Campaign (PAUSED)
-- Ad Sets with audience targeting
-- Ads with generated copy
+- Ad Sets with audience targeting (TOF + retargeting split)
 
-Requires META_ACCESS_TOKEN and META_AD_ACCOUNT_ID in .env
+Ad creatives are NOT created here — Meta requires real images/videos.
+The generated copy (headlines, body text) is saved in 03_ads/meta_ads.json.
+Copy it into Ads Manager manually when adding your images.
+
+Requires META_ACCESS_TOKEN, META_AD_ACCOUNT_ID, and META_PAGE_ID in .env
 """
 
 from __future__ import annotations
@@ -15,7 +18,7 @@ from typing import Any
 from config import settings
 
 BASE = settings.META_GRAPH_BASE
-ACCOUNT = settings.META_AD_ACCOUNT_ID
+ACCOUNT = settings.META_AD_ACCOUNT_ID  # already stripped of act_ by settings
 
 
 async def create_full_campaign(
@@ -25,14 +28,15 @@ async def create_full_campaign(
     landing_page_url: str,
     audience_targeting: dict | None = None,
 ) -> dict[str, Any]:
-    """Create a complete paused Meta campaign from generated ad copy.
+    """Create a paused Meta campaign shell (campaign + ad sets).
 
-    Returns campaign URL and IDs for review.
+    Ad creatives are skipped — Meta requires images/videos you upload.
+    The generated copy in meta_ads.json is your reference for Ads Manager.
     """
     if not settings.META_ACCESS_TOKEN or not settings.META_AD_ACCOUNT_ID:
         return _demo_result(campaign_name)
 
-    results: dict[str, Any] = {"campaign_name": campaign_name, "ads": [], "success": False}
+    results: dict[str, Any] = {"campaign_name": campaign_name, "ad_sets": [], "success": False}
 
     try:
         # ── 1. Create Campaign ────────────────────────────────────────────────
@@ -45,79 +49,38 @@ async def create_full_campaign(
         campaign_id = campaign["id"]
         results["campaign_id"] = campaign_id
         results["campaign_url"] = (
-            f"https://www.facebook.com/adsmanager/manage/campaigns?act={ACCOUNT.replace('act_','')}"
+            f"https://www.facebook.com/adsmanager/manage/campaigns?act={ACCOUNT}"
         )
 
         # ── 2. Build targeting ────────────────────────────────────────────────
         targeting = audience_targeting or _default_targeting()
 
-        # ── 3. Create Ad Sets (one per funnel stage) ──────────────────────────
-        ad_sets = [
+        # ── 3. Create Ad Sets ─────────────────────────────────────────────────
+        ad_set_configs = [
             {"name": f"{campaign_name} — Top of Funnel", "budget_pct": 0.6},
-            {"name": f"{campaign_name} — Retargeting", "budget_pct": 0.4},
+            {"name": f"{campaign_name} — Retargeting",   "budget_pct": 0.4},
         ]
 
-        campaigns_data = ad_creatives.get("campaigns", [])
-        ads_list = []
-        if campaigns_data:
-            for ad_set_info in ad_sets:
-                daily_cents = int(daily_budget_usd * ad_set_info["budget_pct"] * 100)
+        ad_sets_created = []
+        for cfg in ad_set_configs:
+            daily_cents = max(int(daily_budget_usd * cfg["budget_pct"] * 100), 100)
+            ad_set = await _post(f"/act_{ACCOUNT}/adsets", {
+                "name": cfg["name"],
+                "campaign_id": campaign_id,
+                "daily_budget": daily_cents,
+                "billing_event": "IMPRESSIONS",
+                "optimization_goal": "LEAD_GENERATION",
+                "targeting": targeting,
+                "status": "PAUSED",
+            })
+            ad_sets_created.append({"name": cfg["name"], "id": ad_set["id"]})
 
-                ad_set = await _post(f"/act_{ACCOUNT}/adsets", {
-                    "name": ad_set_info["name"],
-                    "campaign_id": campaign_id,
-                    "daily_budget": max(daily_cents, 100),
-                    "billing_event": "IMPRESSIONS",
-                    "optimization_goal": "LEAD_GENERATION",
-                    "targeting": targeting,
-                    "status": "PAUSED",
-                })
-                ad_set_id = ad_set["id"]
-
-                # ── 4. Create Ads from generated copy ─────────────────────────
-                source_ads = (
-                    campaigns_data[0].get("ad_sets", [{}])[0].get("ads", [])
-                    if campaigns_data else []
-                )
-
-                for i, ad_copy in enumerate(source_ads[:2]):
-                    creative = await _post(f"/act_{ACCOUNT}/adcreatives", {
-                        "name": f"{ad_copy.get('ad_name', f'Ad {i+1}')}",
-                        "object_story_spec": {
-                            "page_id": await _get_page_id(),
-                            "link_data": {
-                                "message": ad_copy.get("primary_text", ""),
-                                "link": landing_page_url,
-                                "name": ad_copy.get("headline", ""),
-                                "description": ad_copy.get("description", ""),
-                                "call_to_action": {
-                                    "type": ad_copy.get("cta_button", "LEARN_MORE"),
-                                    "value": {"link": landing_page_url},
-                                },
-                            },
-                        },
-                    })
-
-                    ad = await _post(f"/act_{ACCOUNT}/ads", {
-                        "name": ad_copy.get("ad_name", f"Ad {i+1}"),
-                        "adset_id": ad_set_id,
-                        "creative": {"creative_id": creative["id"]},
-                        "status": "PAUSED",
-                    })
-
-                    ads_list.append({
-                        "ad_name": ad_copy.get("ad_name", f"Ad {i+1}"),
-                        "ad_id": ad["id"],
-                        "headline": ad_copy.get("headline", ""),
-                        "status": "PAUSED",
-                    })
-
-        results["ads"] = ads_list
-        results["total_ads_created"] = len(ads_list)
+        results["ad_sets"] = ad_sets_created
         results["success"] = True
         results["next_step"] = (
-            f"Review your campaign at: {results['campaign_url']}\n"
-            "Everything is PAUSED — activate when you're ready."
+            "Your campaign shell is live in Meta Ads Manager (PAUSED).\n"
+            "Open the campaign, go into each Ad Set, and create ads using the "
+            "copy from meta_ads.json. Add your images/videos, then activate."
         )
 
     except Exception as e:
@@ -165,7 +128,8 @@ async def create_retargeting_campaign(
             "campaign_id": campaign_id,
             "ad_set_id": ad_set["id"],
             "status": "PAUSED",
-            "next_step": "Add your retargeting ad creatives in Meta Ads Manager, then activate.",
+            "campaign_url": f"https://www.facebook.com/adsmanager/manage/campaigns?act={ACCOUNT}",
+            "next_step": "Add retargeting ad creatives in Ads Manager, then activate.",
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -188,23 +152,6 @@ def _default_targeting() -> dict:
     }
 
 
-async def _get_page_id() -> str:
-    """Get the first Facebook page connected to the ad account."""
-    try:
-        async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(
-                f"{BASE}/me/accounts",
-                params={"access_token": settings.META_ACCESS_TOKEN},
-            )
-            data = r.json()
-            pages = data.get("data", [])
-            if pages:
-                return pages[0]["id"]
-    except Exception:
-        pass
-    return ""
-
-
 async def _post(path: str, payload: dict) -> dict:
     payload["access_token"] = settings.META_ACCESS_TOKEN
     async with httpx.AsyncClient(timeout=30) as c:
@@ -221,5 +168,5 @@ def _demo_result(name: str) -> dict:
         "success": False,
         "demo_mode": True,
         "message": "Add META_ACCESS_TOKEN and META_AD_ACCOUNT_ID to .env to auto-create campaigns.",
-        "next_step": "Add your Meta credentials to .env — see .env.example for the variable names.",
+        "next_step": "Add your Meta credentials to .env — see .env.example for variable names.",
     }

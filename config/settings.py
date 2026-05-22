@@ -12,7 +12,8 @@ CLAUDE_MODEL: str = "claude-sonnet-4-6"
 
 # ── Meta ──────────────────────────────────────────────────────────────────────
 META_ACCESS_TOKEN: str = os.getenv("META_ACCESS_TOKEN", "")
-META_AD_ACCOUNT_ID: str = os.getenv("META_AD_ACCOUNT_ID", "")
+META_AD_ACCOUNT_ID: str = os.getenv("META_AD_ACCOUNT_ID", "").replace("act_", "")  # store without act_ prefix
+META_PAGE_ID: str = os.getenv("META_PAGE_ID", "")
 META_API_VERSION: str = "v21.0"
 META_GRAPH_BASE: str = f"https://graph.facebook.com/{META_API_VERSION}"
 
