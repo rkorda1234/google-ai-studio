@@ -40,6 +40,7 @@ Socket Mode means no public URL or server is needed — the bot connects outward
 | `commands` | Handle slash commands |
 | `im:write` | Send DMs to users |
 | `channels:read` | Read channel list |
+| `files:write` | Upload campaign files to Slack |
 
 3. Scroll back up and click **"Install to Workspace"**
 4. **Copy the Bot User OAuth Token** — it starts with `xoxb-`
