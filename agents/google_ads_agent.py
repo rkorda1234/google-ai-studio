@@ -68,66 +68,57 @@ async def create_search_campaign(
     results: dict[str, Any] = {"campaign_name": campaign_name, "success": False}
 
     try:
-        # Use Google Ads API mutate operations
-        operations = []
-
-        # ── Budget ────────────────────────────────────────────────────────────
-        budget_op = {
-            "campaignBudgetOperation": {
-                "create": {
+        async with httpx.AsyncClient(timeout=30) as c:
+            # ── Step 1: Create budget ─────────────────────────────────────────
+            br = await c.post(
+                f"{ADS_BASE}/customers/{customer_id}/campaignBudgets:mutate",
+                headers=_headers(access_token),
+                json={"operations": [{"create": {
                     "name": f"{campaign_name} Budget",
                     "amountMicros": str(daily_budget_usd * 1_000_000),
                     "deliveryMethod": "STANDARD",
-                }
-            }
-        }
+                }}]},
+            )
+            if not br.text.strip():
+                raise ValueError(f"Budget API empty response (HTTP {br.status_code}) — verify developer token and customer ID")
+            try:
+                budget_data = br.json()
+            except Exception:
+                raise ValueError(f"Budget API non-JSON (HTTP {br.status_code}): {br.text[:300]}")
+            if "error" in budget_data:
+                raise ValueError(budget_data["error"].get("message", str(budget_data["error"])))
 
-        # ── Campaign ──────────────────────────────────────────────────────────
-        campaign_op = {
-            "campaignOperation": {
-                "create": {
+            budget_resource = budget_data["results"][0]["resourceName"]
+
+            # ── Step 2: Create campaign referencing the budget ─────────────────
+            cr = await c.post(
+                f"{ADS_BASE}/customers/{customer_id}/campaigns:mutate",
+                headers=_headers(access_token),
+                json={"operations": [{"create": {
                     "name": campaign_name,
                     "advertisingChannelType": "SEARCH",
                     "status": "PAUSED",
-                    "manualCpc": {},
+                    "campaignBudget": budget_resource,
+                    "manualCpc": {"enhancedCpcEnabled": False},
                     "networkSettings": {
                         "targetGoogleSearch": True,
                         "targetSearchNetwork": True,
                         "targetContentNetwork": False,
                     },
-                }
-            }
-        }
-
-        operations = [budget_op, campaign_op]
-
-        async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.post(
-                f"{ADS_BASE}/customers/{customer_id}:mutate",
-                headers=_headers(access_token),
-                json={"mutateOperations": operations},
+                }}]},
             )
-            if not r.text.strip():
-                raise ValueError(f"Empty response from Google Ads API (HTTP {r.status_code}) — check developer token and customer ID")
+            if not cr.text.strip():
+                raise ValueError(f"Campaign API empty response (HTTP {cr.status_code})")
             try:
-                data = r.json()
+                campaign_data = cr.json()
             except Exception:
-                raise ValueError(f"Non-JSON response (HTTP {r.status_code}): {r.text[:300]}")
-
-            if "error" in data:
-                raise ValueError(data["error"].get("message", str(data["error"])))
+                raise ValueError(f"Campaign API non-JSON (HTTP {cr.status_code}): {cr.text[:300]}")
+            if "error" in campaign_data:
+                raise ValueError(campaign_data["error"].get("message", str(campaign_data["error"])))
 
             results["success"] = True
-            results["campaign_url"] = (
-                f"https://ads.google.com/aw/campaigns?customerId={customer_id}"
-            )
+            results["campaign_url"] = f"https://ads.google.com/aw/campaigns?customerId={customer_id}"
             results["status"] = "PAUSED"
-            results["next_step"] = (
-                f"Review your campaign at: {results['campaign_url']}\n"
-                "Everything is PAUSED — activate when ready."
-            )
-
-            # Add RSA details to results for reference
             rsas = google_ads_data.get("responsive_search_ads", [])
             results["rsa_count"] = len(rsas)
             results["sample_headlines"] = rsas[0].get("headlines", [])[:3] if rsas else []

@@ -13,12 +13,18 @@ Requires META_ACCESS_TOKEN, META_AD_ACCOUNT_ID, and META_PAGE_ID in .env
 
 from __future__ import annotations
 
+import os
 import httpx
 from typing import Any
 from config import settings
 
 BASE = settings.META_GRAPH_BASE
-ACCOUNT = settings.META_AD_ACCOUNT_ID.replace("act_", "")  # strip prefix regardless of .env format
+
+
+def _account_id() -> str:
+    """Always read fresh from env, strip act_ prefix regardless of format."""
+    raw = os.getenv("META_AD_ACCOUNT_ID", "")
+    return raw.replace("act_", "").strip()
 
 
 async def create_full_campaign(
@@ -36,11 +42,12 @@ async def create_full_campaign(
     if not settings.META_ACCESS_TOKEN or not settings.META_AD_ACCOUNT_ID:
         return _demo_result(campaign_name)
 
+    account = _account_id()
     results: dict[str, Any] = {"campaign_name": campaign_name, "ad_sets": [], "success": False}
 
     try:
         # ── 1. Create Campaign ────────────────────────────────────────────────
-        campaign = await _post(f"/act_{ACCOUNT}/campaigns", {
+        campaign = await _post(f"/act_{account}/campaigns", {
             "name": campaign_name,
             "objective": "OUTCOME_LEADS",
             "status": "PAUSED",
@@ -49,7 +56,7 @@ async def create_full_campaign(
         campaign_id = campaign["id"]
         results["campaign_id"] = campaign_id
         results["campaign_url"] = (
-            f"https://www.facebook.com/adsmanager/manage/campaigns?act={ACCOUNT}"
+            f"https://www.facebook.com/adsmanager/manage/campaigns?act={account}"
         )
 
         # ── 2. Build targeting ────────────────────────────────────────────────
@@ -64,7 +71,7 @@ async def create_full_campaign(
         ad_sets_created = []
         for cfg in ad_set_configs:
             daily_cents = max(int(daily_budget_usd * cfg["budget_pct"] * 100), 100)
-            ad_set = await _post(f"/act_{ACCOUNT}/adsets", {
+            ad_set = await _post(f"/act_{account}/adsets", {
                 "name": cfg["name"],
                 "campaign_id": campaign_id,
                 "daily_budget": daily_cents,
@@ -101,8 +108,9 @@ async def create_retargeting_campaign(
     if not settings.META_ACCESS_TOKEN or not settings.META_AD_ACCOUNT_ID:
         return _demo_result(f"{campaign_name} — Retargeting")
 
+    account = _account_id()
     try:
-        campaign = await _post(f"/act_{ACCOUNT}/campaigns", {
+        campaign = await _post(f"/act_{account}/campaigns", {
             "name": f"{campaign_name} — Retargeting",
             "objective": "OUTCOME_LEADS",
             "status": "PAUSED",
@@ -110,7 +118,7 @@ async def create_retargeting_campaign(
         })
         campaign_id = campaign["id"]
 
-        ad_set = await _post(f"/act_{ACCOUNT}/adsets", {
+        ad_set = await _post(f"/act_{account}/adsets", {
             "name": "GHL Non-Converters",
             "campaign_id": campaign_id,
             "daily_budget": daily_budget_usd * 100,
@@ -128,7 +136,7 @@ async def create_retargeting_campaign(
             "campaign_id": campaign_id,
             "ad_set_id": ad_set["id"],
             "status": "PAUSED",
-            "campaign_url": f"https://www.facebook.com/adsmanager/manage/campaigns?act={ACCOUNT}",
+            "campaign_url": f"https://www.facebook.com/adsmanager/manage/campaigns?act={account}",
             "next_step": "Add retargeting ad creatives in Ads Manager, then activate.",
         }
     except Exception as e:

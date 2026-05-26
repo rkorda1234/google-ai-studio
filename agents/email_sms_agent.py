@@ -23,6 +23,10 @@ COPYWRITER_SYSTEM = (
     "without being pushy. Your emails have high open rates because of compelling subject lines, "
     "and high click rates because of crystal-clear CTAs. "
     "You understand GoHighLevel automation workflows. "
+    "IMPORTANT: Write all email body copy as plain text only — no HTML tags. "
+    "Use these exact GHL merge tag formats for personalization: "
+    "{{contact.first_name}}, {{contact.last_name}}, {{contact.email}}, {{contact.phone}}, "
+    "{{business.name}}, {{business.email}}, {{business.phone}}, {{contact.company_name}}. "
     "Return structured JSON where specified."
 )
 
@@ -58,10 +62,9 @@ Return ONLY valid JSON:
         "trigger": "lead magnet opt-in",
         "subject": "string",
         "preview_text": "string (45 chars)",
-        "body_html": "string (full HTML email body)",
-        "body_plain": "string",
+        "body": "string — plain text, use {{{{contact.first_name}}}} etc for personalization",
         "cta_text": "string",
-        "cta_url": "{{lead_magnet_url}}",
+        "cta_url": "{{{{lead_magnet_url}}}}",
         "goal": "deliver lead magnet + set expectations",
         "ghl_tag_on_click": "lm-delivered"
       }}
@@ -73,8 +76,7 @@ Return ONLY valid JSON:
         "subject": "string",
         "preview_text": "string",
         "email_type": "value | story | case_study | pain_agitate | soft_sell | hard_sell",
-        "body_html": "string (full HTML)",
-        "body_plain": "string",
+        "body": "string — plain text, multiple paragraphs separated by blank lines",
         "cta_text": "string",
         "cta_url": "string",
         "goal": "string",
@@ -88,10 +90,9 @@ Return ONLY valid JSON:
         "subject": "string",
         "preview_text": "string",
         "email_type": "direct_offer | urgency | faq | testimonial",
-        "body_html": "string",
-        "body_plain": "string",
+        "body": "string — plain text",
         "cta_text": "string",
-        "cta_url": "{{booking_url}}",
+        "cta_url": "{{{{booking_url}}}}",
         "goal": "book a call / purchase",
         "ghl_tag_on_click": "clicked-book-call"
       }}
@@ -241,10 +242,9 @@ Return ONLY valid JSON:
       "subject": "string",
       "preview_text": "string",
       "angle": "we noticed | objection handling | social proof | new angle | final chance",
-      "body_html": "string",
-      "body_plain": "string",
+      "body": "string — plain text, use {{{{contact.first_name}}}} for personalization",
       "cta_text": "string",
-      "cta_url": "{{booking_url}}",
+      "cta_url": "{{{{booking_url}}}}",
       "ps_line": "string (compelling PS)"
     }}
   ]
