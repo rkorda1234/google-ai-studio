@@ -107,7 +107,12 @@ async def create_search_campaign(
                 headers=_headers(access_token),
                 json={"mutateOperations": operations},
             )
-            data = r.json()
+            if not r.text.strip():
+                raise ValueError(f"Empty response from Google Ads API (HTTP {r.status_code}) — check developer token and customer ID")
+            try:
+                data = r.json()
+            except Exception:
+                raise ValueError(f"Non-JSON response (HTTP {r.status_code}): {r.text[:300]}")
 
             if "error" in data:
                 raise ValueError(data["error"].get("message", str(data["error"])))

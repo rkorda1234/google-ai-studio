@@ -18,7 +18,7 @@ from typing import Any
 from config import settings
 
 BASE = settings.META_GRAPH_BASE
-ACCOUNT = settings.META_AD_ACCOUNT_ID  # already stripped of act_ by settings
+ACCOUNT = settings.META_AD_ACCOUNT_ID.replace("act_", "")  # strip prefix regardless of .env format
 
 
 async def create_full_campaign(
