@@ -22,9 +22,13 @@ BASE = settings.META_GRAPH_BASE
 
 
 def _account_id() -> str:
-    """Always read fresh from env, strip act_ prefix regardless of format."""
-    raw = os.getenv("META_AD_ACCOUNT_ID", "")
-    return raw.replace("act_", "").strip()
+    """Always read fresh from env, strip ALL act_ prefixes regardless of format."""
+    raw = os.getenv("META_AD_ACCOUNT_ID", "").strip()
+    account = raw
+    while account.startswith("act_"):
+        account = account[4:]
+    print(f"[META] raw env value: {raw!r} → using account_id: {account!r}")
+    return account
 
 
 async def create_full_campaign(
@@ -39,6 +43,7 @@ async def create_full_campaign(
     Ad creatives are skipped — Meta requires images/videos you upload.
     The generated copy in meta_ads.json is your reference for Ads Manager.
     """
+    print(f"[META] create_full_campaign called. META_AD_ACCOUNT_ID in settings: {settings.META_AD_ACCOUNT_ID!r}")
     if not settings.META_ACCESS_TOKEN or not settings.META_AD_ACCOUNT_ID:
         return _demo_result(campaign_name)
 
