@@ -22,11 +22,11 @@ BASE = settings.META_GRAPH_BASE
 
 
 def _account_id() -> str:
-    """Always read fresh from env, strip ALL act_ prefixes regardless of format."""
+    """Extract the numeric account ID from any format (act_123, act=123, 123, etc.)."""
+    import re
     raw = os.getenv("META_AD_ACCOUNT_ID", "").strip()
-    account = raw
-    while account.startswith("act_"):
-        account = account[4:]
+    match = re.search(r'\d{10,}', raw)
+    account = match.group() if match else raw
     print(f"[META] raw env value: {raw!r} → using account_id: {account!r}")
     return account
 

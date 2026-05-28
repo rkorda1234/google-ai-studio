@@ -14,7 +14,7 @@ from typing import Any
 from config import settings
 
 TOKEN_URL = "https://oauth2.googleapis.com/token"
-ADS_BASE = "https://googleads.googleapis.com/v17"
+ADS_BASE = "https://googleads.googleapis.com/v19"
 
 
 async def _get_access_token() -> tuple[str | None, str]:
