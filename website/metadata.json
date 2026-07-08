@@ -1,0 +1,8 @@
+{
+  "name": "Marketingverse AI Agency",
+  "description": "A modern web application for a digital marketing agency featuring AI-powered consultation, service packages, and a project portfolio.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": []
+}
